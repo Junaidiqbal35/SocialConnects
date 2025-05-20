@@ -1,0 +1,129 @@
+{% load humanize %}
+
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden" id="post-{{ post.id }}">
+    <!-- Post header -->
+    <div class="p-4 flex items-center justify-between">
+        <div class="flex items-center">
+            <!-- Author avatar -->
+            <a href="{% url 'profiles:detail' username=post.author.username %}" class="mr-3">
+                {% if post.author.profile.avatar %}
+                    <img src="{{ post.author.profile.avatar.url }}" alt="{{ post.author.username }}" class="h-10 w-10 rounded-full object-cover">
+                {% else %}
+                    <div class="h-10 w-10 rounded-full bg-primary-500 text-white flex items-center justify-center text-md">
+                        {{ post.author.username|make_list|first|upper }}
+                    </div>
+                {% endif %}
+            </a>
+            
+            <!-- Author info and post time -->
+            <div>
+                <a href="{% url 'profiles:detail' username=post.author.username %}" class="font-medium text-gray-900 dark:text-white hover:underline">
+                    {{ post.author.get_full_name|default:post.author.username }}
+                </a>
+                <p class="text-sm text-gray-500 dark:text-gray-400">{{ post.created_at|naturaltime }}</p>
+            </div>
+        </div>
+        
+        <!-- Post actions dropdown -->
+        {% if user == post.author %}
+            <div class="relative" x-data="{ open: false }">
+                <button @click="open = !open" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none">
+                    <i class="fas fa-ellipsis-h"></i>
+                </button>
+                
+                <!-- Dropdown menu -->
+                <div x-show="open" @click.away="open = false" class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-gray-700 ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 dark:divide-gray-600 z-10">
+                    <div class="py-1">
+                        <a href="{% url 'feed:edit_post' pk=post.pk %}" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">
+                            <i class="fas fa-edit mr-2"></i> Edit
+                        </a>
+                        <a href="{% url 'feed:delete_post' pk=post.pk %}" class="block px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-600">
+                            <i class="fas fa-trash-alt mr-2"></i> Delete
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- Post content -->
+    <div class="px-4 pb-4">
+        <!-- Text content -->
+        <div class="mb-4 text-gray-800 dark:text-gray-200 whitespace-pre-line">
+            {{ post.content }}
+        </div>
+        
+        <!-- Image (if any) -->
+        {% if post.image %}
+            <div class="mb-4">
+                <img src="{{ post.image.url }}" alt="Post image" class="rounded-md max-h-96 w-auto mx-auto">
+            </div>
+        {% endif %}
+        
+        <!-- Post stats (likes, comments) -->
+        <div class="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-2">
+            <div>
+                <span id="post-likes-count-{{ post.id }}">{{ post.get_like_count }}</span> likes
+            </div>
+            <div>
+                <a href="{% url 'feed:post_detail' pk=post.pk %}" class="hover:text-gray-700 dark:hover:text-gray-300">
+                    <span id="post-comments-count-{{ post.id }}">{{ post.get_comment_count }}</span> comments
+                </a>
+            </div>
+        </div>
+        
+        <!-- Action buttons -->
+        <div class="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
+            <!-- Like button -->
+            {% if user in post.likes.all %}
+                <form action="{% url 'feed:unlike_post' pk=post.pk %}" method="post" class="inline like-form" data-post-id="{{ post.id }}">
+                    {% csrf_token %}
+                    <button type="submit" class="flex items-center text-primary-600 dark:text-primary-400 focus:outline-none">
+                        <i class="fas fa-heart mr-1"></i> Like
+                    </button>
+                </form>
+            {% else %}
+                <form action="{% url 'feed:like_post' pk=post.pk %}" method="post" class="inline like-form" data-post-id="{{ post.id }}">
+                    {% csrf_token %}
+                    <button type="submit" class="flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none">
+                        <i class="far fa-heart mr-1"></i> Like
+                    </button>
+                </form>
+            {% endif %}
+            
+            <!-- Comment button -->
+            <a href="{% url 'feed:post_detail' pk=post.pk %}" class="flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none">
+                <i class="far fa-comment mr-1"></i> Comment
+            </a>
+            
+            <!-- Share button -->
+            <a href="{% url 'feed:share_post' pk=post.pk %}" class="flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none">
+                <i class="fas fa-share mr-1"></i> Share
+            </a>
+        </div>
+        
+        <!-- Quick comment form on feed page -->
+        <div class="mt-4 flex items-start space-x-2">
+            <!-- User avatar -->
+            {% if user.profile.avatar %}
+                <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}" class="h-8 w-8 rounded-full object-cover">
+            {% else %}
+                <div class="h-8 w-8 rounded-full bg-primary-500 text-white flex items-center justify-center text-sm">
+                    {{ user.username|make_list|first|upper }}
+                </div>
+            {% endif %}
+            
+            <!-- Comment input -->
+            <form action="{% url 'feed:add_comment' post_pk=post.pk %}" method="post" class="flex-1 quick-comment-form">
+                {% csrf_token %}
+                <div class="relative">
+                    <input type="text" name="content" placeholder="Write a comment..." required
+                           class="block w-full px-4 py-2 border border-gray-300 rounded-full focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm">
+                    <button type="submit" class="absolute right-0 top-0 mr-3 mt-2 text-primary-600">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,369 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ post.author.username }}'s Post{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <!-- Main post -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden mb-6">
+        <!-- Post header -->
+        <div class="p-4 flex items-center justify-between">
+            <div class="flex items-center">
+                <!-- Author avatar -->
+                <a href="{% url 'profiles:detail' username=post.author.username %}" class="mr-3">
+                    {% if post.author.profile.avatar %}
+                        <img src="{{ post.author.profile.avatar.url }}" alt="{{ post.author.username }}" class="h-10 w-10 rounded-full object-cover">
+                    {% else %}
+                        <div class="h-10 w-10 rounded-full bg-primary-500 text-white flex items-center justify-center text-md">
+                            {{ post.author.username|make_list|first|upper }}
+                        </div>
+                    {% endif %}
+                </a>
+                
+                <!-- Author info and post time -->
+                <div>
+                    <a href="{% url 'profiles:detail' username=post.author.username %}" class="font-medium text-gray-900 dark:text-white hover:underline">
+                        {{ post.author.get_full_name|default:post.author.username }}
+                    </a>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ post.created_at|naturaltime }}</p>
+                </div>
+            </div>
+            
+            <!-- Post actions dropdown -->
+            {% if user == post.author %}
+                <div class="relative" x-data="{ open: false }">
+                    <button @click="open = !open" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none">
+                        <i class="fas fa-ellipsis-h"></i>
+                    </button>
+                    
+                    <!-- Dropdown menu -->
+                    <div x-show="open" @click.away="open = false" class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-gray-700 ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 dark:divide-gray-600 z-10">
+                        <div class="py-1">
+                            <a href="{% url 'feed:edit_post' pk=post.pk %}" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">
+                                <i class="fas fa-edit mr-2"></i> Edit
+                            </a>
+                            <a href="{% url 'feed:delete_post' pk=post.pk %}" class="block px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-600">
+                                <i class="fas fa-trash-alt mr-2"></i> Delete
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Post content -->
+        <div class="px-4 pb-4">
+            <!-- Text content -->
+            <div class="mb-4 text-gray-800 dark:text-gray-200 whitespace-pre-line">
+                {{ post.content }}
+            </div>
+            
+            <!-- Image (if any) -->
+            {% if post.image %}
+                <div class="mb-4">
+                    <img src="{{ post.image.url }}" alt="Post image" class="rounded-md max-h-96 w-auto mx-auto">
+                </div>
+            {% endif %}
+            
+            <!-- Post stats (likes, comments) -->
+            <div class="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-2">
+                <div>
+                    <span id="post-likes-count-{{ post.id }}">{{ post.get_like_count }}</span> likes
+                </div>
+                <div>
+                    <span id="post-comments-count-{{ post.id }}">{{ post.get_comment_count }}</span> comments
+                </div>
+            </div>
+            
+            <!-- Action buttons -->
+            <div class="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
+                <!-- Like button -->
+                {% if user in post.likes.all %}
+                    <form action="{% url 'feed:unlike_post' pk=post.pk %}" method="post" class="inline like-form" data-post-id="{{ post.id }}">
+                        {% csrf_token %}
+                        <button type="submit" class="flex items-center text-primary-600 dark:text-primary-400 focus:outline-none">
+                            <i class="fas fa-heart mr-1"></i> Like
+                        </button>
+                    </form>
+                {% else %}
+                    <form action="{% url 'feed:like_post' pk=post.pk %}" method="post" class="inline like-form" data-post-id="{{ post.id }}">
+                        {% csrf_token %}
+                        <button type="submit" class="flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none">
+                            <i class="far fa-heart mr-1"></i> Like
+                        </button>
+                    </form>
+                {% endif %}
+                
+                <!-- Comment button -->
+                <button type="button" class="flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none" onclick="document.getElementById('comment-input').focus()">
+                    <i class="far fa-comment mr-1"></i> Comment
+                </button>
+                
+                <!-- Share button -->
+                <a href="{% url 'feed:share_post' pk=post.pk %}" class="flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none">
+                    <i class="fas fa-share mr-1"></i> Share
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Comments section -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white">Comments</h3>
+        </div>
+        
+        <!-- Comment form -->
+        <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+            <form method="post" action="{% url 'feed:add_comment' post_pk=post.pk %}" class="comment-form">
+                {% csrf_token %}
+                <div class="flex items-start space-x-3">
+                    <!-- User avatar -->
+                    {% if user.profile.avatar %}
+                        <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}" class="h-10 w-10 rounded-full object-cover">
+                    {% else %}
+                        <div class="h-10 w-10 rounded-full bg-primary-500 text-white flex items-center justify-center text-md">
+                            {{ user.username|make_list|first|upper }}
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Comment input -->
+                    <div class="flex-1">
+                        {{ comment_form.content }}
+                        {% if comment_form.content.errors %}
+                            <div class="text-red-500 text-xs mt-1">{{ comment_form.content.errors.0 }}</div>
+                        {% endif %}
+                        
+                        <div class="mt-2 text-right">
+                            <button type="submit" class="py-1 px-4 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out text-sm">
+                                Comment
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Comments list -->
+        <div class="divide-y divide-gray-200 dark:divide-gray-700" id="comments-container">
+            {% for comment in comments %}
+                <div class="p-4" id="comment-{{ comment.id }}">
+                    <div class="flex space-x-3">
+                        <!-- Commenter avatar -->
+                        <a href="{% url 'profiles:detail' username=comment.author.username %}">
+                            {% if comment.author.profile.avatar %}
+                                <img src="{{ comment.author.profile.avatar.url }}" alt="{{ comment.author.username }}" class="h-8 w-8 rounded-full object-cover">
+                            {% else %}
+                                <div class="h-8 w-8 rounded-full bg-primary-500 text-white flex items-center justify-center text-sm">
+                                    {{ comment.author.username|make_list|first|upper }}
+                                </div>
+                            {% endif %}
+                        </a>
+                        
+                        <!-- Comment content -->
+                        <div class="flex-1">
+                            <div class="bg-gray-100 dark:bg-gray-700 rounded-lg px-4 py-2 mb-1">
+                                <div class="flex items-center justify-between mb-1">
+                                    <a href="{% url 'profiles:detail' username=comment.author.username %}" class="font-medium text-gray-900 dark:text-white hover:underline">
+                                        {{ comment.author.get_full_name|default:comment.author.username }}
+                                    </a>
+                                    
+                                    <!-- Comment actions dropdown (for author) -->
+                                    {% if user == comment.author %}
+                                        <div class="relative" x-data="{ open: false }">
+                                            <button @click="open = !open" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none text-sm">
+                                                <i class="fas fa-ellipsis-h"></i>
+                                            </button>
+                                            
+                                            <!-- Dropdown menu -->
+                                            <div x-show="open" @click.away="open = false" class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-gray-700 ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 dark:divide-gray-600 z-10">
+                                                <div class="py-1">
+                                                    <a href="{% url 'feed:edit_comment' pk=comment.pk %}" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">
+                                                        <i class="fas fa-edit mr-2"></i> Edit
+                                                    </a>
+                                                    <a href="{% url 'feed:delete_comment' pk=comment.pk %}" class="block px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-600">
+                                                        <i class="fas fa-trash-alt mr-2"></i> Delete
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="text-gray-800 dark:text-gray-200">
+                                    {{ comment.content }}
+                                </div>
+                            </div>
+                            
+                            <!-- Comment metadata and actions -->
+                            <div class="flex items-center text-xs text-gray-500 dark:text-gray-400">
+                                <span class="mr-4">{{ comment.created_at|naturaltime }}</span>
+                                
+                                <!-- Like/unlike comment -->
+                                {% if user in comment.likes.all %}
+                                    <form action="{% url 'feed:unlike_comment' pk=comment.pk %}" method="post" class="inline comment-like-form mr-4" data-comment-id="{{ comment.id }}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="text-primary-600 dark:text-primary-400 focus:outline-none">
+                                            <i class="fas fa-heart mr-1"></i> <span id="comment-likes-count-{{ comment.id }}">{{ comment.get_like_count }}</span>
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    <form action="{% url 'feed:like_comment' pk=comment.pk %}" method="post" class="inline comment-like-form mr-4" data-comment-id="{{ comment.id }}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none">
+                                            <i class="far fa-heart mr-1"></i> <span id="comment-likes-count-{{ comment.id }}">{{ comment.get_like_count }}</span>
+                                        </button>
+                                    </form>
+                                {% endif %}
+                                
+                                <!-- Reply button (not implemented yet) -->
+                                <button type="button" class="hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none">
+                                    <i class="far fa-comment mr-1"></i> Reply
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="p-6 text-center text-gray-500 dark:text-gray-400">
+                    <p>No comments yet. Be the first to leave a comment!</p>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // AJAX forms for like/unlike actions
+    document.addEventListener('DOMContentLoaded', function() {
+        // Handle post like/unlike
+        const likeForms = document.querySelectorAll('.like-form');
+        likeForms.forEach(form => {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const postId = this.dataset.postId;
+                const formData = new FormData(this);
+                
+                fetch(this.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update like count
+                        document.getElementById(`post-likes-count-${postId}`).textContent = data.likes_count;
+                        
+                        // Update button appearance
+                        const isLiking = this.action.includes('like_post');
+                        if (isLiking) {
+                            this.action = this.action.replace('like_post', 'unlike_post');
+                            this.querySelector('button').innerHTML = '<i class="fas fa-heart mr-1"></i> Like';
+                            this.querySelector('button').classList.remove('text-gray-600', 'dark:text-gray-400', 'hover:text-primary-600', 'dark:hover:text-primary-400');
+                            this.querySelector('button').classList.add('text-primary-600', 'dark:text-primary-400');
+                        } else {
+                            this.action = this.action.replace('unlike_post', 'like_post');
+                            this.querySelector('button').innerHTML = '<i class="far fa-heart mr-1"></i> Like';
+                            this.querySelector('button').classList.remove('text-primary-600', 'dark:text-primary-400');
+                            this.querySelector('button').classList.add('text-gray-600', 'dark:text-gray-400', 'hover:text-primary-600', 'dark:hover:text-primary-400');
+                        }
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            });
+        });
+        
+        // Handle comment like/unlike
+        const commentLikeForms = document.querySelectorAll('.comment-like-form');
+        commentLikeForms.forEach(form => {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const commentId = this.dataset.commentId;
+                const formData = new FormData(this);
+                
+                fetch(this.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update like count
+                        document.getElementById(`comment-likes-count-${commentId}`).textContent = data.likes_count;
+                        
+                        // Update button appearance
+                        const isLiking = this.action.includes('like_comment');
+                        if (isLiking) {
+                            this.action = this.action.replace('like_comment', 'unlike_comment');
+                            this.querySelector('button').innerHTML = `<i class="fas fa-heart mr-1"></i> <span id="comment-likes-count-${commentId}">${data.likes_count}</span>`;
+                            this.querySelector('button').classList.add('text-primary-600', 'dark:text-primary-400');
+                            this.querySelector('button').classList.remove('hover:text-primary-600', 'dark:hover:text-primary-400');
+                        } else {
+                            this.action = this.action.replace('unlike_comment', 'like_comment');
+                            this.querySelector('button').innerHTML = `<i class="far fa-heart mr-1"></i> <span id="comment-likes-count-${commentId}">${data.likes_count}</span>`;
+                            this.querySelector('button').classList.remove('text-primary-600', 'dark:text-primary-400');
+                            this.querySelector('button').classList.add('hover:text-primary-600', 'dark:hover:text-primary-400');
+                        }
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            });
+        });
+        
+        // Handle comment form submission
+        const commentForm = document.querySelector('.comment-form');
+        if (commentForm) {
+            commentForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(this);
+                
+                fetch(this.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Reset the form
+                        this.reset();
+                        
+                        // Update comment count
+                        const commentsCountElement = document.getElementById(`post-comments-count-${post.id}`);
+                        if (commentsCountElement) {
+                            commentsCountElement.textContent = data.comments_count;
+                        }
+                        
+                        // Add new comment to the list (simplified, might need to refresh for full functionality)
+                        const commentsContainer = document.getElementById('comments-container');
+                        
+                        // If empty state exists, remove it
+                        const emptyState = commentsContainer.querySelector('div.p-6.text-center');
+                        if (emptyState) {
+                            emptyState.remove();
+                        }
+                        
+                        // Reload the page to show the new comment with full functionality
+                        window.location.reload();
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            });
+        }
+    });
+</script>
+{% endblock %}

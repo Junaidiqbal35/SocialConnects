@@ -1,0 +1,254 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Notifications{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <!-- Header -->
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <h1 class="text-xl font-bold text-gray-900 dark:text-white">Notifications</h1>
+            
+            {% if notifications|length > 0 %}
+                <a href="{% url 'notifications:list' %}?mark_all_read=1" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">
+                    Mark all as read
+                </a>
+            {% endif %}
+        </div>
+        
+        <!-- Notifications list -->
+        <div class="divide-y divide-gray-200 dark:divide-gray-700">
+            {% for notification in notifications %}
+                <div class="p-4 {% if not notification.is_read %}bg-blue-50 dark:bg-blue-900/20{% endif %}" id="notification-{{ notification.id }}">
+                    <div class="flex items-start space-x-3">
+                        <!-- Sender avatar -->
+                        <a href="{% url 'profiles:detail' username=notification.sender.username %}" class="flex-shrink-0">
+                            {% if notification.sender.profile.avatar %}
+                                <img src="{{ notification.sender.profile.avatar.url }}" alt="{{ notification.sender.username }}" class="h-10 w-10 rounded-full object-cover">
+                            {% else %}
+                                <div class="h-10 w-10 rounded-full bg-primary-500 text-white flex items-center justify-center text-md">
+                                    {{ notification.sender.username|make_list|first|upper }}
+                                </div>
+                            {% endif %}
+                        </a>
+                        
+                        <!-- Notification content -->
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <!-- Notification text with appropriate icon -->
+                                    <div class="text-gray-800 dark:text-gray-200">
+                                        {% if notification.notification_type == 'like' %}
+                                            <i class="fas fa-heart text-red-500 mr-1"></i>
+                                        {% elif notification.notification_type == 'comment' %}
+                                            <i class="fas fa-comment text-blue-500 mr-1"></i>
+                                        {% elif notification.notification_type == 'follow' %}
+                                            <i class="fas fa-user-plus text-green-500 mr-1"></i>
+                                        {% elif notification.notification_type == 'share' %}
+                                            <i class="fas fa-share text-purple-500 mr-1"></i>
+                                        {% elif notification.notification_type == 'like_comment' %}
+                                            <i class="fas fa-comment-heart text-pink-500 mr-1"></i>
+                                        {% elif notification.notification_type == 'message' %}
+                                            <i class="fas fa-envelope text-yellow-500 mr-1"></i>
+                                        {% endif %}
+                                        {{ notification.text }}
+                                    </div>
+                                    
+                                    <!-- Notification time -->
+                                    <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                        {{ notification.created_at|naturaltime }}
+                                    </div>
+                                </div>
+                                
+                                <!-- Mark as read button (for unread notifications) -->
+                                {% if not notification.is_read %}
+                                    <button class="text-sm text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 mark-read-btn" data-notification-id="{{ notification.id }}">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Link to content -->
+                    <div class="mt-2 ml-13">
+                        <a href="{% url 'notifications:mark_as_read' notification_id=notification.id %}" class="inline-block px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+                            {% if notification.notification_type == 'follow' %}
+                                View Profile
+                            {% elif notification.notification_type == 'message' %}
+                                View Message
+                            {% else %}
+                                View Post
+                            {% endif %}
+                        </a>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="py-12 px-6 text-center text-gray-500 dark:text-gray-400">
+                    <i class="fas fa-bell-slash text-6xl mb-4"></i>
+                    <h3 class="text-xl font-medium text-gray-700 dark:text-gray-300 mb-2">No notifications yet</h3>
+                    <p>When someone interacts with you, you'll see it here.</p>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // AJAX to mark notification as read
+    document.addEventListener('DOMContentLoaded', function() {
+        const markReadButtons = document.querySelectorAll('.mark-read-btn');
+        
+        markReadButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const notificationId = this.dataset.notificationId;
+                
+                // Send AJAX request
+                fetch(`/notifications/mark_as_read_ajax/${notificationId}/`, {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update UI
+                        const notificationElement = document.getElementById(`notification-${notificationId}`);
+                        notificationElement.classList.remove('bg-blue-50', 'dark:bg-blue-900/20');
+                        this.remove();
+                        
+                        // Update badge in navbar (if exists)
+                        const badge = document.querySelector('.notification-badge');
+                        if (badge) {
+                            const count = parseInt(badge.textContent) - 1;
+                            if (count <= 0) {
+                                badge.remove();
+                            } else {
+                                badge.textContent = count;
+                            }
+                        }
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            });
+        });
+    });
+    
+    // WebSocket connection for real-time notifications
+    document.addEventListener('DOMContentLoaded', function() {
+        // Only connect if authenticated
+        if (document.body.classList.contains('user-authenticated')) {
+            // Create WebSocket connection
+            const notificationSocket = new WebSocket(
+                `${window.location.protocol === 'https:' ? 'wss://' : 'ws://'}${window.location.host}/ws/notifications/`
+            );
+            
+            notificationSocket.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                
+                if (data.type === 'notification') {
+                    // Show a toast notification
+                    showToast(data.notification.text, data.notification.type);
+                    
+                    // Update notification badge
+                    updateNotificationBadge();
+                }
+            };
+            
+            notificationSocket.onclose = function(e) {
+                console.log('Notification socket closed');
+            };
+        }
+    });
+    
+    // Function to show toast notification
+    function showToast(message, type) {
+        // Create toast element
+        const toast = document.createElement('div');
+        toast.className = 'fixed top-4 right-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 max-w-md z-50 transform transition-all duration-300 translate-y-0 opacity-100';
+        
+        // Icon based on notification type
+        let icon = 'bell';
+        if (type === 'like') icon = 'heart';
+        else if (type === 'comment') icon = 'comment';
+        else if (type === 'follow') icon = 'user-plus';
+        else if (type === 'share') icon = 'share';
+        else if (type === 'message') icon = 'envelope';
+        
+        toast.innerHTML = `
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-${icon} text-primary-500"></i>
+                </div>
+                <div class="ml-3 flex-1">
+                    <p class="text-sm font-medium text-gray-900 dark:text-white">${message}</p>
+                </div>
+                <div class="ml-4 flex-shrink-0 flex">
+                    <button class="bg-white dark:bg-gray-800 rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none">
+                        <span class="sr-only">Close</span>
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        // Add to document
+        document.body.appendChild(toast);
+        
+        // Add click handler to close button
+        toast.querySelector('button').addEventListener('click', function() {
+            toast.classList.replace('translate-y-0', '-translate-y-12');
+            toast.classList.replace('opacity-100', 'opacity-0');
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        });
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            toast.classList.replace('translate-y-0', '-translate-y-12');
+            toast.classList.replace('opacity-100', 'opacity-0');
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        }, 5000);
+    }
+    
+    // Function to update notification badge
+    function updateNotificationBadge() {
+        fetch('/notifications/count/', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            const navbarNotificationLink = document.querySelector('a[href="{% url "notifications:list" %}"]');
+            
+            if (navbarNotificationLink) {
+                // Remove existing badge if exists
+                const existingBadge = navbarNotificationLink.querySelector('.notification-badge');
+                if (existingBadge) {
+                    existingBadge.remove();
+                }
+                
+                // Add new badge if count is greater than 0
+                if (data.count > 0) {
+                    const badge = document.createElement('span');
+                    badge.className = 'notification-badge';
+                    badge.textContent = data.count;
+                    navbarNotificationLink.appendChild(badge);
+                }
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    }
+</script>
+{% endblock %}

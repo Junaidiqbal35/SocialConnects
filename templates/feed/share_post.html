@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Share Post{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h1 class="text-xl font-bold text-gray-900 dark:text-white">Share Post</h1>
+        </div>
+        
+        <div class="p-6">
+            <!-- Original post preview -->
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden mb-6">
+                <div class="p-4">
+                    <!-- Original post header -->
+                    <div class="flex items-center mb-3">
+                        <!-- Original author avatar -->
+                        <a href="{% url 'profiles:detail' username=post.author.username %}" class="mr-3">
+                            {% if post.author.profile.avatar %}
+                                <img src="{{ post.author.profile.avatar.url }}" alt="{{ post.author.username }}" class="h-10 w-10 rounded-full object-cover">
+                            {% else %}
+                                <div class="h-10 w-10 rounded-full bg-primary-500 text-white flex items-center justify-center text-md">
+                                    {{ post.author.username|make_list|first|upper }}
+                                </div>
+                            {% endif %}
+                        </a>
+                        
+                        <div>
+                            <a href="{% url 'profiles:detail' username=post.author.username %}" class="font-medium text-gray-900 dark:text-white hover:underline">
+                                {{ post.author.get_full_name|default:post.author.username }}
+                            </a>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">
+                                {{ post.created_at|naturaltime }}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Original post content -->
+                    <div class="mb-3 text-gray-800 dark:text-gray-200 whitespace-pre-line">
+                        {{ post.content }}
+                    </div>
+                    
+                    <!-- Original post image (if any) -->
+                    {% if post.image %}
+                        <div class="mb-3">
+                            <img src="{{ post.image.url }}" alt="Post image" class="rounded-md max-h-96 w-auto mx-auto">
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Share form -->
+            <form method="post" action="{% url 'feed:share_post' pk=post.pk %}">
+                {% csrf_token %}
+                
+                <!-- Comment field -->
+                <div class="mb-4">
+                    <label for="{{ form.comment.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Add a comment (optional)
+                    </label>
+                    {{ form.comment }}
+                    {% if form.comment.errors %}
+                        <div class="text-red-500 text-xs mt-1">{{ form.comment.errors.0 }}</div>
+                    {% endif %}
+                </div>
+                
+                <!-- Form errors -->
+                {% if form.non_field_errors %}
+                    <div class="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
+                        {% for error in form.non_field_errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                
+                <!-- Submit buttons -->
+                <div class="flex justify-end space-x-2">
+                    <a href="{{ request.META.HTTP_REFERER|default:'/' }}" class="py-2 px-4 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white font-medium rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none transition duration-150 ease-in-out">
+                        Cancel
+                    </a>
+                    <button type="submit" class="py-2 px-4 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out">
+                        Share Post
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

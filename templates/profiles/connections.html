@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if connection_type == 'followers' %}Followers{% else %}Following{% endif %} | {{ profile.user.username }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center">
+            <a href="{% url 'profiles:detail' username=profile.user.username %}" class="mr-3 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold text-gray-900 dark:text-white">
+                {% if connection_type == 'followers' %}
+                    People following {{ profile.user.username }}
+                {% else %}
+                    People {{ profile.user.username }} follows
+                {% endif %}
+            </h1>
+        </div>
+        
+        <!-- Connections list -->
+        <div class="divide-y divide-gray-200 dark:divide-gray-700">
+            {% for connection in connections %}
+                <div class="p-6 flex items-center justify-between">
+                    <div class="flex items-center">
+                        <!-- User avatar -->
+                        <a href="{% url 'profiles:detail' username=connection.user.username %}" class="mr-4">
+                            {% if connection.avatar %}
+                                <img src="{{ connection.avatar.url }}" alt="{{ connection.user.username }}" class="h-16 w-16 rounded-full object-cover">
+                            {% else %}
+                                <div class="h-16 w-16 rounded-full bg-primary-500 text-white flex items-center justify-center text-xl">
+                                    {{ connection.user.username|make_list|first|upper }}
+                                </div>
+                            {% endif %}
+                        </a>
+                        
+                        <!-- User info -->
+                        <div>
+                            <a href="{% url 'profiles:detail' username=connection.user.username %}" class="block hover:underline">
+                                <h2 class="text-lg font-medium text-gray-900 dark:text-white">
+                                    {{ connection.user.get_full_name|default:connection.user.username }}
+                                </h2>
+                            </a>
+                            <p class="text-gray-600 dark:text-gray-400">@{{ connection.user.username }}</p>
+                            
+                            {% if connection.bio %}
+                                <p class="text-gray-600 dark:text-gray-400 text-sm mt-1 max-w-2xl truncate">
+                                    {{ connection.bio }}
+                                </p>
+                            {% endif %}
+                            
+                            <div class="flex items-center mt-2 text-sm text-gray-500 dark:text-gray-400">
+                                <span class="mr-4">{{ connection.get_followers_count }} followers</span>
+                                <span>{{ connection.get_following_count }} following</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Follow/Unfollow buttons -->
+                    {% if user != connection.user %}
+                        <div>
+                            {% if user.profile.is_following %}
+                                <form action="{% url 'profiles:unfollow' username=connection.user.username %}" method="post" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="py-2 px-4 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white font-medium rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none transition duration-150 ease-in-out">
+                                        <i class="fas fa-user-minus mr-1"></i> Unfollow
+                                    </button>
+                                </form>
+                            {% else %}
+                                <form action="{% url 'profiles:follow' username=connection.user.username %}" method="post" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="py-2 px-4 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-md focus:outline-none transition duration-150 ease-in-out">
+                                        <i class="fas fa-user-plus mr-1"></i> Follow
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            {% empty %}
+                <div class="py-12 px-6 text-center text-gray-500 dark:text-gray-400">
+                    {% if connection_type == 'followers' %}
+                        <i class="fas fa-users text-6xl mb-4"></i>
+                        <h3 class="text-xl font-medium text-gray-700 dark:text-gray-300 mb-2">No followers yet</h3>
+                        <p>{{ profile.user.username }} doesn't have any followers yet.</p>
+                    {% else %}
+                        <i class="fas fa-user-friends text-6xl mb-4"></i>
+                        <h3 class="text-xl font-medium text-gray-700 dark:text-gray-300 mb-2">Not following anyone</h3>
+                        <p>{{ profile.user.username }} isn't following anyone yet.</p>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

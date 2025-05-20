@@ -1,0 +1,235 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Profile{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div class="px-6 py-4 bg-primary-600 dark:bg-primary-700">
+            <h2 class="text-xl font-bold text-white">Edit Profile</h2>
+        </div>
+        
+        <div class="p-6">
+            <form method="post" enctype="multipart/form-data" novalidate>
+                {% csrf_token %}
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- User info section -->
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4 border-b border-gray-200 dark:border-gray-700 pb-2">
+                            Account Information
+                        </h3>
+                        
+                        <!-- First Name -->
+                        <div class="mb-4">
+                            <label for="{{ user_form.first_name.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                First Name
+                            </label>
+                            {{ user_form.first_name }}
+                            {% if user_form.first_name.errors %}
+                                <div class="text-red-500 text-xs mt-1">{{ user_form.first_name.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Last Name -->
+                        <div class="mb-4">
+                            <label for="{{ user_form.last_name.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Last Name
+                            </label>
+                            {{ user_form.last_name }}
+                            {% if user_form.last_name.errors %}
+                                <div class="text-red-500 text-xs mt-1">{{ user_form.last_name.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Email -->
+                        <div class="mb-4">
+                            <label for="{{ user_form.email.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Email
+                            </label>
+                            {{ user_form.email }}
+                            {% if user_form.email.errors %}
+                                <div class="text-red-500 text-xs mt-1">{{ user_form.email.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Password Change Link -->
+                        <div class="mt-6">
+                            <a href="{% url 'accounts:password_change' %}" class="text-primary-600 dark:text-primary-400 hover:underline">
+                                <i class="fas fa-key mr-1"></i> Change Password
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <!-- Profile section -->
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4 border-b border-gray-200 dark:border-gray-700 pb-2">
+                            Profile Information
+                        </h3>
+                        
+                        <!-- Avatar -->
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Profile Picture
+                            </label>
+                            <div class="flex items-center">
+                                <!-- Current avatar preview -->
+                                <div class="mr-4">
+                                    {% if user.profile.avatar %}
+                                        <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}" class="h-16 w-16 rounded-full object-cover">
+                                    {% else %}
+                                        <div class="h-16 w-16 rounded-full bg-primary-500 text-white flex items-center justify-center text-xl">
+                                            {{ user.username|make_list|first|upper }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Avatar upload -->
+                                <div class="flex-1">
+                                    {{ profile_form.avatar }}
+                                    {% if profile_form.avatar.errors %}
+                                        <div class="text-red-500 text-xs mt-1">{{ profile_form.avatar.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Bio -->
+                        <div class="mb-4">
+                            <label for="{{ profile_form.bio.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Bio
+                            </label>
+                            {{ profile_form.bio }}
+                            {% if profile_form.bio.errors %}
+                                <div class="text-red-500 text-xs mt-1">{{ profile_form.bio.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Location -->
+                        <div class="mb-4">
+                            <label for="{{ profile_form.location.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Location
+                            </label>
+                            {{ profile_form.location }}
+                            {% if profile_form.location.errors %}
+                                <div class="text-red-500 text-xs mt-1">{{ profile_form.location.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Birth date -->
+                        <div class="mb-4">
+                            <label for="{{ profile_form.birth_date.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Birth Date
+                            </label>
+                            {{ profile_form.birth_date }}
+                            {% if profile_form.birth_date.errors %}
+                                <div class="text-red-500 text-xs mt-1">{{ profile_form.birth_date.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Website -->
+                        <div class="mb-4">
+                            <label for="{{ profile_form.website.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Website
+                            </label>
+                            {{ profile_form.website }}
+                            {% if profile_form.website.errors %}
+                                <div class="text-red-500 text-xs mt-1">{{ profile_form.website.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Social media links -->
+                <div class="mt-6">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4 border-b border-gray-200 dark:border-gray-700 pb-2">
+                        Social Media Links
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Facebook -->
+                        <div>
+                            <label for="{{ profile_form.facebook.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <i class="fab fa-facebook text-blue-600 mr-1"></i> Facebook
+                            </label>
+                            {{ profile_form.facebook }}
+                            {% if profile_form.facebook.errors %}
+                                <div class="text-red-500 text-xs mt-1">{{ profile_form.facebook.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Twitter -->
+                        <div>
+                            <label for="{{ profile_form.twitter.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <i class="fab fa-twitter text-blue-400 mr-1"></i> Twitter
+                            </label>
+                            {{ profile_form.twitter }}
+                            {% if profile_form.twitter.errors %}
+                                <div class="text-red-500 text-xs mt-1">{{ profile_form.twitter.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Instagram -->
+                        <div>
+                            <label for="{{ profile_form.instagram.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <i class="fab fa-instagram text-pink-600 mr-1"></i> Instagram
+                            </label>
+                            {{ profile_form.instagram }}
+                            {% if profile_form.instagram.errors %}
+                                <div class="text-red-500 text-xs mt-1">{{ profile_form.instagram.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- LinkedIn -->
+                        <div>
+                            <label for="{{ profile_form.linkedin.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <i class="fab fa-linkedin text-blue-700 mr-1"></i> LinkedIn
+                            </label>
+                            {{ profile_form.linkedin }}
+                            {% if profile_form.linkedin.errors %}
+                                <div class="text-red-500 text-xs mt-1">{{ profile_form.linkedin.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Privacy settings -->
+                <div class="mt-6">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4 border-b border-gray-200 dark:border-gray-700 pb-2">
+                        Privacy Settings
+                    </h3>
+                    
+                    <div class="flex items-center">
+                        {{ profile_form.is_private }}
+                        <label for="{{ profile_form.is_private.id_for_label }}" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                            Make my profile private (only followers can see my posts)
+                        </label>
+                    </div>
+                    {% if profile_form.is_private.errors %}
+                        <div class="text-red-500 text-xs mt-1">{{ profile_form.is_private.errors.0 }}</div>
+                    {% endif %}
+                </div>
+                
+                <!-- Form errors -->
+                {% if user_form.non_field_errors or profile_form.non_field_errors %}
+                    <div class="mt-6 p-4 bg-red-100 text-red-700 rounded-md">
+                        {% for error in user_form.non_field_errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                        {% for error in profile_form.non_field_errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                
+                <!-- Submit button -->
+                <div class="mt-6">
+                    <button type="submit" class="w-full py-2 px-4 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+
+{% block title %}Explore Users{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h1 class="text-xl font-bold text-gray-900 dark:text-white">Explore Users</h1>
+        </div>
+        
+        <!-- Search form -->
+        <div class="p-6 bg-gray-50 dark:bg-gray-700">
+            <form method="GET" action="{% url 'profiles:search' %}" class="flex items-center justify-center">
+                <div class="relative w-full max-w-lg">
+                    <input type="text" name="q" placeholder="Search for users..." 
+                           class="w-full px-4 py-2 pl-10 pr-8 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                           value="{{ request.GET.q|default:'' }}">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fas fa-search text-gray-400"></i>
+                    </div>
+                    <button type="submit" class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                        <span class="text-primary-600 dark:text-primary-400 text-sm font-medium">Search</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Popular profiles section -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Popular Users</h2>
+        </div>
+        
+        <div class="p-6">
+                            {% if popular_profiles %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {% for profile in popular_profiles %}
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 flex flex-col items-center">
+                            <!-- User avatar -->
+                            {% if profile.user %}
+                            <a href="{% url 'profiles:detail' username=profile.user.username %}" class="mb-2">
+                                {% if profile.avatar %}
+                                    <img src="{{ profile.avatar.url }}" alt="{{ profile.user.username }}" class="h-24 w-24 rounded-full object-cover">
+                                {% else %}
+                                    <div class="h-24 w-24 rounded-full bg-primary-500 text-white flex items-center justify-center text-3xl">
+                                        {{ profile.user.username|make_list|first|upper }}
+                                    </div>
+                                {% endif %}
+                            </a>
+                            
+                            <!-- User info -->
+                            <a href="{% url 'profiles:detail' username=profile.user.username %}" class="text-center">
+                                <h3 class="font-medium text-gray-900 dark:text-white text-lg">
+                                    {{ profile.user.get_full_name|default:profile.user.username }}
+                                </h3>
+                                <p class="text-gray-600 dark:text-gray-400 text-sm">@{{ profile.user.username }}</p>
+                            </a>
+                            {% endif %}
+                            
+                            <!-- Follower count -->
+                            <p class="text-gray-500 dark:text-gray-400 text-sm mt-1 mb-3">
+                                {{ profile.get_followers_count }} follower{{ profile.get_followers_count|pluralize }}
+                            </p>
+                            
+                            <!-- Follow button -->
+                            {% if user != profile.user and profile.user %}
+                                {% if user.profile.is_following %}
+                                    <form action="{% url 'profiles:unfollow' username=profile.user.username %}" method="post" class="w-full">
+                                        {% csrf_token %}
+                                        <button type="submit" class="w-full py-1 px-4 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-white font-medium rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 focus:outline-none transition duration-150 ease-in-out text-sm">
+                                            <i class="fas fa-user-minus mr-1"></i> Unfollow
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    <form action="{% url 'profiles:follow' username=profile.user.username %}" method="post" class="w-full">
+                                        {% csrf_token %}
+                                        <button type="submit" class="w-full py-1 px-4 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-md focus:outline-none transition duration-150 ease-in-out text-sm">
+                                            <i class="fas fa-user-plus mr-1"></i> Follow
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-4 text-gray-500 dark:text-gray-400">
+                    No popular users found.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Suggested profiles section -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Suggested for You</h2>
+        </div>
+        
+        <div class="p-6">
+            {% if suggested_profiles %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {% for profile in suggested_profiles %}
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 flex flex-col items-center">
+                            <!-- User avatar -->
+                            {% if profile.user %}
+                            <a href="{% url 'profiles:detail' username=profile.user.username %}" class="mb-2">
+                                {% if profile.avatar %}
+                                    <img src="{{ profile.avatar.url }}" alt="{{ profile.user.username }}" class="h-24 w-24 rounded-full object-cover">
+                                {% else %}
+                                    <div class="h-24 w-24 rounded-full bg-primary-500 text-white flex items-center justify-center text-3xl">
+                                        {{ profile.user.username|make_list|first|upper }}
+                                    </div>
+                                {% endif %}
+                            </a>
+                            
+                            <!-- User info -->
+                            <a href="{% url 'profiles:detail' username=profile.user.username %}" class="text-center">
+                                <h3 class="font-medium text-gray-900 dark:text-white text-lg">
+                                    {{ profile.user.get_full_name|default:profile.user.username }}
+                                </h3>
+                                <p class="text-gray-600 dark:text-gray-400 text-sm">@{{ profile.user.username }}</p>
+                            </a>
+                            
+                            <!-- Bio preview -->
+                            {% if profile.bio %}
+                                <p class="text-gray-600 dark:text-gray-400 text-sm mt-2 mb-3 text-center truncate max-w-full">
+                                    {{ profile.bio|truncatechars:60 }}
+                                </p>
+                            {% else %}
+                                <div class="h-5 mb-3"></div>
+                            {% endif %}
+                            
+                            <!-- Follow button -->
+                            {% if user != profile.user %}
+                                <form action="{% url 'profiles:follow' username=profile.user.username %}" method="post" class="w-full">
+                                    {% csrf_token %}
+                                    <button type="submit" class="w-full py-1 px-4 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-md focus:outline-none transition duration-150 ease-in-out text-sm">
+                                        <i class="fas fa-user-plus mr-1"></i> Follow
+                                    </button>
+                                </form>
+                            {% endif %}
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-4 text-gray-500 dark:text-gray-400">
+                    No suggested users found.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

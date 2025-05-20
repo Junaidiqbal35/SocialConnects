@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Messages{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h1 class="text-xl font-bold text-gray-900 dark:text-white">Messages</h1>
+        </div>
+        
+        {% if conversations %}
+            <div class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for conversation in conversations %}
+                    <a href="{% url 'chat:conversation' conversation_id=conversation.id %}" class="block hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                        <div class="p-4 flex items-center">
+                            <!-- User avatar -->
+                            {% if conversation.other_user.profile.avatar %}
+                                <img src="{{ conversation.other_user.profile.avatar.url }}" alt="{{ conversation.other_user.username }}" class="h-12 w-12 rounded-full object-cover">
+                            {% else %}
+                                <div class="h-12 w-12 rounded-full bg-primary-500 text-white flex items-center justify-center text-xl">
+                                    {{ conversation.other_user.username|make_list|first|upper }}
+                                </div>
+                            {% endif %}
+                            
+                            <!-- User info and last message -->
+                            <div class="ml-4 flex-1">
+                                <div class="flex items-center justify-between">
+                                    <h2 class="text-lg font-medium text-gray-900 dark:text-white">
+                                        {{ conversation.other_user.get_full_name|default:conversation.other_user.username }}
+                                    </h2>
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">
+                                        {{ conversation.latest_message_time|naturaltime }}
+                                    </span>
+                                </div>
+                                
+                                <div class="flex items-center justify-between">
+                                    <p class="text-gray-600 dark:text-gray-300 truncate max-w-md">
+                                        {% if conversation.last_message %}
+                                            {% if conversation.last_message.sender == user %}
+                                                <span class="text-gray-500 dark:text-gray-400">You: </span>
+                                            {% endif %}
+                                            {{ conversation.last_message.content|truncatechars:60 }}
+                                        {% else %}
+                                            <span class="text-gray-500 dark:text-gray-400 italic">No messages yet</span>
+                                        {% endif %}
+                                    </p>
+                                    
+                                    {% if conversation.unread_count > 0 %}
+                                        <span class="bg-primary-600 text-white text-xs px-2 py-1 rounded-full">
+                                            {{ conversation.unread_count }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="py-12 px-6 text-center text-gray-500 dark:text-gray-400">
+                <i class="fas fa-comments text-6xl mb-4"></i>
+                <h3 class="text-xl font-medium text-gray-700 dark:text-gray-300 mb-2">No messages yet</h3>
+                <p class="mb-4">Start a conversation with someone to see it here.</p>
+                <a href="{% url 'profiles:explore' %}" class="inline-block px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out">
+                    Explore Users
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

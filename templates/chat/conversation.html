@@ -1,0 +1,638 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Chat with {{ other_user.username }}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto h-[calc(100vh-9rem)]" id="chat-container" data-conversation-id="{{ conversation.id }}" data-room-name="{{ conversation.id }}" data-current-user-id="{{ user.id }}">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden h-full flex flex-col">
+        <!-- Chat header -->
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-750">
+            <div class="flex items-center">
+                <!-- User avatar -->
+                <a href="{% url 'profiles:detail' username=other_user.username %}" class="mr-3 relative">
+                    {% if other_user.profile.avatar %}
+                        <img src="{{ other_user.profile.avatar.url }}" alt="{{ other_user.username }}" class="h-12 w-12 rounded-full object-cover border-2 border-white dark:border-gray-700 shadow-sm">
+                    {% else %}
+                        <div class="h-12 w-12 rounded-full bg-gradient-to-r from-primary-500 to-blue-500 text-white flex items-center justify-center text-lg font-semibold border-2 border-white dark:border-gray-700 shadow-sm">
+                            {{ other_user.username|make_list|first|upper }}
+                        </div>
+                    {% endif %}
+                    <span id="online-status" class="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-gray-400 dark:bg-gray-600 border-2 border-white dark:border-gray-700"></span>
+                </a>
+                
+                <!-- User info -->
+                <div>
+                    <h1 class="font-semibold text-lg text-gray-900 dark:text-white">
+                        <a href="{% url 'profiles:detail' username=other_user.username %}" class="hover:underline">
+                            {{ other_user.get_full_name|default:other_user.username }}
+                        </a>
+                    </h1>
+                    <div class="text-sm text-gray-500 dark:text-gray-400 flex items-center">
+                        <span class="flex items-center" id="typing-indicator" style="display: none;">
+                            <span class="typing-animation mr-1">
+                                <span class="dot"></span>
+                                <span class="dot"></span>
+                                <span class="dot"></span>
+                            </span>
+                            typing...
+                        </span>
+                        <span class="text-xs" id="user-status">last seen recently</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Action buttons -->
+            <div class="flex items-center space-x-3">
+                <button type="button" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none transition p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="Voice call">
+                    <i class="fas fa-phone"></i>
+                </button>
+                <button type="button" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none transition p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="Video call">
+                    <i class="fas fa-video"></i>
+                </button>
+                <a href="{% url 'profiles:detail' username=other_user.username %}" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none transition p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="View profile">
+                    <i class="fas fa-user"></i>
+                </a>
+                <div class="relative" x-data="{ open: false }">
+                    <button @click="open = !open" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none transition p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="More options">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <div x-show="open" @click.away="open = false" class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-10 py-1 border border-gray-200 dark:border-gray-700">
+                        <a href="{% url 'chat:inbox' %}" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <i class="fas fa-arrow-left mr-2"></i> Back to inbox
+                        </a>
+                        <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <i class="fas fa-search mr-2"></i> Search in conversation
+                        </button>
+                        <button class="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <i class="fas fa-trash-alt mr-2"></i> Delete conversation
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Chat messages -->
+        <div class="flex-grow overflow-y-auto p-4 bg-gray-50 dark:bg-gray-850" id="messages-container">
+            <div class="flex flex-col space-y-4">
+                <!-- Messages will be loaded here -->
+                <div class="text-center text-gray-500 dark:text-gray-400 py-2 px-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm max-w-max mx-auto" id="loading-messages">
+                    <i class="fas fa-spinner fa-spin mr-2"></i> Loading conversation...
+                </div>
+            </div>
+        </div>
+        
+        <!-- Message input -->
+        <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <form id="message-form" class="flex items-end space-x-2">
+                <button type="button" class="p-2 text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none transition">
+                    <i class="fas fa-plus"></i>
+                </button>
+                
+                <div class="relative flex-1">
+                    <textarea id="message-input" rows="1" class="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white resize-none" placeholder="Type a message..."></textarea>
+                    
+                    <!-- Emoji picker button -->
+                    <button type="button" class="absolute right-0 bottom-0 mr-12 mb-3 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none">
+                        <i class="far fa-smile"></i>
+                    </button>
+                </div>
+                
+                <button type="submit" class="p-3 rounded-full bg-primary-600 text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Message templates -->
+<template id="date-divider-template">
+    <div class="flex items-center my-4">
+        <div class="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
+        <div class="mx-4 text-sm text-gray-500 dark:text-gray-400 date-text"></div>
+        <div class="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
+    </div>
+</template>
+
+<template id="message-template">
+    <div class="message flex mb-4" data-message-id="">
+        <div class="flex max-w-[75%] group">
+            <div class="message-bubble px-4 py-3 rounded-2xl relative group">
+                <div class="message-content break-words"></div>
+                <div class="message-meta text-xs mt-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                    <span class="message-time"></span>
+                </div>
+                <div class="absolute top-2 right-0 opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-full px-2 message-options">
+                    <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                        <i class="fas fa-ellipsis-h"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<template id="message-actions-template">
+    <div class="message-actions absolute top-0 right-0 mr-6 -mt-2 bg-white dark:bg-gray-700 rounded-md shadow-md z-10 border border-gray-200 dark:border-gray-600">
+        <div class="py-1">
+            <button class="reply-message-btn block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600">
+                <i class="fas fa-reply mr-2"></i> Reply
+            </button>
+            <button class="copy-message-btn block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600">
+                <i class="fas fa-copy mr-2"></i> Copy
+            </button>
+            <button class="forward-message-btn block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600">
+                <i class="fas fa-share mr-2"></i> Forward
+            </button>
+            <button class="delete-message-btn block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-600">
+                <i class="fas fa-trash-alt mr-2"></i> Delete
+            </button>
+        </div>
+    </div>
+</template>
+
+<style>
+    /* Better scrollbar for messages */
+    #messages-container::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    #messages-container::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    
+    #messages-container::-webkit-scrollbar-thumb {
+        background-color: rgba(156, 163, 175, 0.5);
+        border-radius: 20px;
+    }
+    
+    /* Auto-expand textarea (up to 5 rows) */
+    #message-input {
+        max-height: 120px;
+        overflow-y: auto;
+    }
+    
+    /* Sent message styling */
+    .message.sent {
+        justify-content: flex-end;
+    }
+    
+    .message.sent .message-bubble {
+        background: linear-gradient(135deg, #0ea5e9, #3b82f6);
+        color: white;
+        border-radius: 18px 4px 18px 18px;
+    }
+    
+    /* Received message styling */
+    .message.received .message-bubble {
+        background-color: #f3f4f6;
+        color: #1f2937;
+        border-radius: 4px 18px 18px 18px;
+    }
+    
+    .dark .message.received .message-bubble {
+        background-color: #374151;
+        color: #f9fafb;
+    }
+    
+    /* Typing animation */
+    .typing-animation {
+        display: inline-flex;
+        align-items: center;
+    }
+    
+    .typing-animation .dot {
+        display: inline-block;
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background-color: currentColor;
+        margin: 0 1px;
+        animation: typing 1.4s infinite ease-in-out both;
+    }
+    
+    .typing-animation .dot:nth-child(1) {
+        animation-delay: 0s;
+    }
+    
+    .typing-animation .dot:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+    
+    .typing-animation .dot:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+    
+    @keyframes typing {
+        0%, 100% {
+            transform: scale(0.7);
+            opacity: 0.5;
+        }
+        50% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+    
+    /* Message status indicators */
+    .message-status {
+        font-size: 0.7rem;
+        margin-left: 4px;
+    }
+    
+    /* Dark mode enhancements */
+    .dark .bg-gray-750 {
+        background-color: #1e2235;
+    }
+    
+    .dark .bg-gray-850 {
+        background-color: #151926;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Elements
+        const chatContainer = document.getElementById('chat-container');
+        const messagesContainer = document.getElementById('messages-container');
+        const messageForm = document.getElementById('message-form');
+        const messageInput = document.getElementById('message-input');
+        const loadingElement = document.getElementById('loading-messages');
+        const typingIndicator = document.getElementById('typing-indicator');
+        const userStatus = document.getElementById('user-status');
+        const onlineStatus = document.getElementById('online-status');
+        
+        // Variables from data attributes
+        const conversationId = chatContainer.dataset.conversationId;
+        const roomName = chatContainer.dataset.roomName;
+        const currentUserId = parseInt(chatContainer.dataset.currentUserId);
+        
+        // Auto-expanding textarea
+        messageInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+            
+            // Limit to max height
+            if (this.scrollHeight > 120) {
+                this.style.overflowY = 'auto';
+            } else {
+                this.style.overflowY = 'hidden';
+            }
+        });
+        
+        // Load initial messages
+        loadMessages();
+        
+        // WebSocket connection
+        const chatSocket = new WebSocket(
+            `${window.location.protocol === 'https:' ? 'wss://' : 'ws://'}${window.location.host}/ws/chat/${roomName}/`
+        );
+        
+        // Connect WebSocket
+        chatSocket.onopen = function(e) {
+            console.log('WebSocket connection established');
+            loadingElement.textContent = 'Connected to chat';
+            
+            // Simulate online status
+            setTimeout(() => {
+                onlineStatus.classList.remove('bg-gray-400', 'dark:bg-gray-600');
+                onlineStatus.classList.add('bg-green-500');
+                userStatus.textContent = 'online';
+            }, 1000);
+        };
+        
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            
+            if (data.type === 'message') {
+                addMessage({
+                    id: data.message_id,
+                    content: data.message,
+                    sender_id: data.sender_id,
+                    sender_username: data.sender_username,
+                    created_at: data.timestamp,
+                    is_mine: data.sender_id === currentUserId,
+                    is_deleted: false
+                });
+                
+                // Scroll to bottom
+                scrollToBottom();
+                
+                // Play sound for new message (if not from current user)
+                if (data.sender_id !== currentUserId) {
+                    playMessageSound();
+                }
+            }
+            else if (data.type === 'typing') {
+                handleTypingIndicator(data.user_id, data.is_typing);
+            }
+            else if (data.type === 'delete') {
+                handleMessageDeletion(data.message_id);
+            }
+            else if (data.type === 'system_message') {
+                console.log('System message:', data.message);
+                // Could display system messages in the chat
+            }
+        };
+        
+        chatSocket.onclose = function(e) {
+            console.log('WebSocket connection closed');
+            loadingElement.style.display = 'block';
+            loadingElement.innerHTML = 'Connection lost. <a href="javascript:window.location.reload()" class="text-primary-600 dark:text-primary-400 underline">Refresh</a> to reconnect.';
+            
+            // Update online status
+            onlineStatus.classList.remove('bg-green-500');
+            onlineStatus.classList.add('bg-gray-400', 'dark:bg-gray-600');
+            userStatus.textContent = 'offline';
+        };
+        
+        chatSocket.onerror = function(e) {
+            console.error('WebSocket error:', e);
+            loadingElement.style.display = 'block';
+            loadingElement.innerHTML = 'Connection error. <a href="javascript:window.location.reload()" class="text-primary-600 dark:text-primary-400 underline">Refresh</a> to try again.';
+        };
+        
+        // Send message
+        messageForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const message = messageInput.value.trim();
+            if (message) {
+                chatSocket.send(JSON.stringify({
+                    'type': 'message',
+                    'conversation_id': conversationId,
+                    'message': message
+                }));
+                
+                messageInput.value = '';
+                messageInput.style.height = 'auto';
+                
+                // Stop typing indicator
+                chatSocket.send(JSON.stringify({
+                    'type': 'typing',
+                    'is_typing': false
+                }));
+            }
+        });
+        
+        // Typing indicator
+        let typingTimeout;
+        messageInput.addEventListener('input', function() {
+            // Send typing indicator (true)
+            chatSocket.send(JSON.stringify({
+                'type': 'typing',
+                'is_typing': true
+            }));
+            
+            // Clear previous timeout
+            clearTimeout(typingTimeout);
+            
+            // Set new timeout to stop typing indicator after 2 seconds of inactivity
+            typingTimeout = setTimeout(function() {
+                chatSocket.send(JSON.stringify({
+                    'type': 'typing',
+                    'is_typing': false
+                }));
+            }, 2000);
+        });
+        
+        // Handle typing indicator
+        function handleTypingIndicator(userId, isTyping) {
+            // Only show typing indicator for the other user
+            if (userId !== currentUserId) {
+                typingIndicator.style.display = isTyping ? 'flex' : 'none';
+                
+                // Update user status
+                if (isTyping) {
+                    userStatus.style.display = 'none';
+                } else {
+                    userStatus.style.display = 'inline';
+                }
+            }
+        }
+        
+        // Load messages
+        function loadMessages() {
+            fetch(`/chat/conversation/${conversationId}/messages/`)
+                .then(response => response.json())
+                .then(data => {
+                    // Hide loading
+                    loadingElement.style.display = 'none';
+                    
+                    // Add messages
+                    const messages = data.messages;
+                    if (messages.length > 0) {
+                        // Group messages by date for dividers
+                        let currentDate = '';
+                        
+                        messages.forEach((message, index) => {
+                            // Check if we need a date divider
+                            const messageDate = new Date(message.created_at);
+                            const formattedDate = formatMessageDate(messageDate);
+                            
+                            if (formattedDate !== currentDate) {
+                                addDateDivider(formattedDate);
+                                currentDate = formattedDate;
+                            }
+                            
+                            addMessage(message);
+                        });
+                        
+                        // Scroll to bottom
+                        scrollToBottom();
+                    } else {
+                        // Show empty state
+                        messagesContainer.innerHTML = `
+                            <div class="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-gray-400 py-8">
+                                <div class="w-24 h-24 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
+                                    <i class="fas fa-comment-dots text-4xl text-gray-400 dark:text-gray-500"></i>
+                                </div>
+                                <h3 class="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">No messages yet</h3>
+                                <p class="text-sm max-w-md">Say hi to start the conversation with ${otherUsername}!</p>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading messages:', error);
+                    loadingElement.textContent = 'Error loading messages. Please refresh.';
+                });
+        }
+        
+        // Add a date divider
+        function addDateDivider(dateText) {
+            const template = document.getElementById('date-divider-template');
+            const dividerNode = template.content.cloneNode(true);
+            
+            const dateElement = dividerNode.querySelector('.date-text');
+            dateElement.textContent = dateText;
+            
+            messagesContainer.appendChild(dividerNode);
+        }
+        
+        // Format message date for dividers
+        function formatMessageDate(date) {
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            
+            if (date.toDateString() === today.toDateString()) {
+                return 'Today';
+            } else if (date.toDateString() === yesterday.toDateString()) {
+                return 'Yesterday';
+            } else {
+                return date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+            }
+        }
+        
+        // Add a message to the chat
+        function addMessage(message) {
+            const template = document.getElementById('message-template');
+            const messageNode = template.content.cloneNode(true);
+            
+            const messageElement = messageNode.querySelector('.message');
+            const messageContent = messageNode.querySelector('.message-content');
+            const messageTime = messageNode.querySelector('.message-time');
+            const messageBubble = messageNode.querySelector('.message-bubble');
+            
+            // Set message content
+            messageContent.textContent = message.is_deleted ? 'This message was deleted' : message.content;
+            
+            // Set message time
+            const messageDate = new Date(message.created_at);
+            messageTime.textContent = messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            // Set message ID
+            messageElement.dataset.messageId = message.id;
+            
+            // Style based on sender
+            if (message.is_mine) {
+                messageElement.classList.add('sent');
+                messageBubble.dataset.status = 'sent';
+                
+                // Add message status indicator
+                const statusSpan = document.createElement('span');
+                statusSpan.className = 'message-status ml-1';
+                statusSpan.innerHTML = '<i class="fas fa-check-double"></i>';
+                messageTime.appendChild(statusSpan);
+                
+                // Add delete option for own messages
+                if (!message.is_deleted) {
+                    const messageOptions = messageNode.querySelector('.message-options');
+                    
+                    messageOptions.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        
+                        // Add action menu if not already there
+                        if (!messageBubble.querySelector('.message-actions')) {
+                            const actionsTemplate = document.getElementById('message-actions-template');
+                            const actionsNode = actionsTemplate.content.cloneNode(true);
+                            messageBubble.appendChild(actionsNode);
+                            
+                            // Add delete event listener
+                            const deleteBtn = messageBubble.querySelector('.delete-message-btn');
+                            deleteBtn.addEventListener('click', function() {
+                                deleteMessage(message.id);
+                            });
+                            
+                            // Add copy event listener
+                            const copyBtn = messageBubble.querySelector('.copy-message-btn');
+                            copyBtn.addEventListener('click', function() {
+                                navigator.clipboard.writeText(message.content)
+                                    .then(() => {
+                                        // Show copy success
+                                        const originalText = copyBtn.innerHTML;
+                                        copyBtn.innerHTML = '<i class="fas fa-check mr-2"></i> Copied!';
+                                        setTimeout(() => {
+                                            copyBtn.innerHTML = originalText;
+                                        }, 2000);
+                                    });
+                            });
+                            
+                            // Close menu when clicking outside
+                            document.addEventListener('click', function closeMenu() {
+                                const actionsElement = messageBubble.querySelector('.message-actions');
+                                if (actionsElement) {
+                                    actionsElement.remove();
+                                    document.removeEventListener('click', closeMenu);
+                                }
+                            });
+                        }
+                    });
+                }
+            } else {
+                messageElement.classList.add('received');
+            }
+            
+            // Style deleted messages
+            if (message.is_deleted) {
+                messageContent.classList.add('italic', 'text-gray-500', 'dark:text-gray-400');
+            }
+            
+            // Add message to container
+            messagesContainer.appendChild(messageElement);
+        }
+        
+        // Delete a message
+        function deleteMessage(messageId) {
+            chatSocket.send(JSON.stringify({
+                'type': 'delete',
+                'message_id': messageId
+            }));
+        }
+        
+        // Handle message deletion
+        function handleMessageDeletion(messageId) {
+            const messageElement = document.querySelector(`.message[data-message-id="${messageId}"]`);
+            if (messageElement) {
+                const contentElement = messageElement.querySelector('.message-content');
+                contentElement.textContent = 'This message was deleted';
+                contentElement.classList.add('italic', 'text-gray-500', 'dark:text-gray-400');
+                
+                // Remove action buttons
+                const actionsElement = messageElement.querySelector('.message-actions');
+                if (actionsElement) {
+                    actionsElement.remove();
+                }
+            }
+        }
+        
+        // Play sound for new messages
+        function playMessageSound() {
+            // Create a subtle notification sound
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // A5
+            oscillator.frequency.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
+            
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.5);
+        }
+        
+        // Scroll to bottom of messages
+        function scrollToBottom() {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        // Set initial online status
+        setTimeout(() => {
+            // Simulate initial connection
+            onlineStatus.classList.remove('bg-gray-400', 'dark:bg-gray-600');
+            onlineStatus.classList.add('bg-gray-300', 'dark:bg-gray-500');
+            userStatus.textContent = 'connecting...';
+        }, 500);
+    });
+</script>
+{% endblock %}

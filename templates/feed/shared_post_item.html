@@ -1,0 +1,110 @@
+{% load humanize %}
+
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+    <div class="p-4">
+        <!-- Header with share info -->
+        <div class="flex items-center mb-4">
+            <!-- Share author avatar -->
+            <a href="{% url 'profiles:detail' username=shared.shared_by.username %}" class="mr-3">
+                {% if shared.shared_by.profile.avatar %}
+                    <img src="{{ shared.shared_by.profile.avatar.url }}" alt="{{ shared.shared_by.username }}" class="h-10 w-10 rounded-full object-cover">
+                {% else %}
+                    <div class="h-10 w-10 rounded-full bg-primary-500 text-white flex items-center justify-center text-md">
+                        {{ shared.shared_by.username|make_list|first|upper }}
+                    </div>
+                {% endif %}
+            </a>
+            
+            <div>
+                <a href="{% url 'profiles:detail' username=shared.shared_by.username %}" class="font-medium text-gray-900 dark:text-white hover:underline">
+                    {{ shared.shared_by.get_full_name|default:shared.shared_by.username }}
+                </a>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    <i class="fas fa-share mr-1"></i> Shared a post · {{ shared.created_at|naturaltime }}
+                </p>
+            </div>
+        </div>
+        
+        <!-- Share comment (if any) -->
+        {% if shared.comment %}
+            <div class="mb-4 text-gray-800 dark:text-gray-200 whitespace-pre-line">
+                {{ shared.comment }}
+            </div>
+        {% endif %}
+        
+        <!-- Original post -->
+        <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <div class="p-4">
+                <!-- Original post header -->
+                <div class="flex items-center mb-3">
+                    <!-- Original author avatar -->
+                    <a href="{% url 'profiles:detail' username=shared.original_post.author.username %}" class="mr-3">
+                        {% if shared.original_post.author.profile.avatar %}
+                            <img src="{{ shared.original_post.author.profile.avatar.url }}" alt="{{ shared.original_post.author.username }}" class="h-8 w-8 rounded-full object-cover">
+                        {% else %}
+                            <div class="h-8 w-8 rounded-full bg-primary-500 text-white flex items-center justify-center text-sm">
+                                {{ shared.original_post.author.username|make_list|first|upper }}
+                            </div>
+                        {% endif %}
+                    </a>
+                    
+                    <div>
+                        <a href="{% url 'profiles:detail' username=shared.original_post.author.username %}" class="font-medium text-gray-900 dark:text-white hover:underline">
+                            {{ shared.original_post.author.get_full_name|default:shared.original_post.author.username }}
+                        </a>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            {{ shared.original_post.created_at|naturaltime }}
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Original post content -->
+                <div class="mb-3 text-gray-800 dark:text-gray-200 whitespace-pre-line">
+                    {{ shared.original_post.content }}
+                </div>
+                
+                <!-- Original post image (if any) -->
+                {% if shared.original_post.image %}
+                    <div class="mb-3">
+                        <img src="{{ shared.original_post.image.url }}" alt="Post image" class="rounded-md max-h-64 w-auto mx-auto">
+                    </div>
+                {% endif %}
+                
+                <!-- Link to original post -->
+                <a href="{% url 'feed:post_detail' pk=shared.original_post.pk %}" class="inline-block text-sm text-primary-600 dark:text-primary-400 hover:underline">
+                    View original post
+                </a>
+            </div>
+        </div>
+        
+        <!-- Action buttons -->
+        <div class="flex items-center justify-between mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <!-- Like button for the original post -->
+            {% if user in shared.original_post.likes.all %}
+                <form action="{% url 'feed:unlike_post' pk=shared.original_post.pk %}" method="post" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="flex items-center text-primary-600 dark:text-primary-400 focus:outline-none">
+                        <i class="fas fa-heart mr-1"></i> Like
+                    </button>
+                </form>
+            {% else %}
+                <form action="{% url 'feed:like_post' pk=shared.original_post.pk %}" method="post" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none">
+                        <i class="far fa-heart mr-1"></i> Like
+                    </button>
+                </form>
+            {% endif %}
+            
+            <!-- Comment button -->
+            <a href="{% url 'feed:post_detail' pk=shared.original_post.pk %}" class="flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none">
+                <i class="far fa-comment mr-1"></i> Comment
+            </a>
+            
+            <!-- Share button -->
+            <a href="{% url 'feed:share_post' pk=shared.original_post.pk %}" class="flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none">
+                <i class="fas fa-share mr-1"></i> Share
+            </a>
+        </div>
+    </div>
+</div>
